@@ -2292,3 +2292,86 @@ section + .divider, hr.divider {
   opacity: 0 !important;
   pointer-events: none !important;
 }
+
+/* ── Beta join card (closed-test CTA) ── */
+.beta-join {
+  position: relative;
+  margin-top: 28px;
+  padding: 22px 26px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(74, 222, 128, 0.10), rgba(46, 125, 191, 0.10));
+  border: 1px solid rgba(74, 222, 128, 0.30);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: center;
+  align-items: center;
+  overflow: hidden;
+  box-shadow: 0 4px 22px rgba(74, 222, 128, 0.08);
+}
+.beta-pulse {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 10px;
+  height: 10px;
+  background: #4ade80;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6);
+  animation: betaPulse 2s infinite;
+}
+@keyframes betaPulse {
+  0%   { box-shadow: 0 0 0 0    rgba(74, 222, 128, 0.6); }
+  70%  { box-shadow: 0 0 0 14px rgba(74, 222, 128, 0); }
+  100% { box-shadow: 0 0 0 0    rgba(74, 222, 128, 0); }
+}
+.beta-eyebrow {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #4ade80;
+  margin-bottom: 6px;
+}
+.beta-title {
+  font-size: 1.22rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 6px;
+  line-height: 1.3;
+}
+.beta-desc {
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 480px;
+}
+.beta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, #4ade80, #2e7dbf);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.98rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 14px rgba(74, 222, 128, 0.35);
+}
+.beta-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(74, 222, 128, 0.55);
+}
+@media (min-width: 720px) {
+  .beta-join {
+    flex-direction: row;
+    text-align: left;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .beta-content { flex: 1; }
+}

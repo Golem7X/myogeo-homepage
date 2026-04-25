@@ -290,6 +290,26 @@
             Try the web preview →
           </a>
         </div>
+        <!--
+          BETA JOIN CARD — Hidden by default. Activate once Google approves closed testing.
+          STEPS TO ACTIVATE:
+            1. Replace href="#REPLACE_WITH_PLAY_TESTING_URL" with your Play Store testing URL
+               (you'll find it in Play Console → Closed testing → Testers tab → "Join on the web")
+            2. Remove the inline   style="display:none"   on the wrapper div below
+          That's it — the live beta CTA will appear above the email-capture form.
+        -->
+        <div class="beta-join reveal" style="display:none">
+          <span class="beta-pulse" aria-hidden="true"></span>
+          <div class="beta-content">
+            <span class="beta-eyebrow">🚀 CLOSED BETA · LIVE NOW</span>
+            <h3 class="beta-title">Try Geonify before public launch</h3>
+            <p class="beta-desc">Install via Google Play and help shape the final version.</p>
+          </div>
+          <a href="#REPLACE_WITH_PLAY_TESTING_URL" class="beta-btn" target="_blank" rel="noopener noreferrer">
+            Join the Beta →
+          </a>
+        </div>
+
         <div class="email-capture reveal">
           <p class="email-label">Get notified when we launch on Google Play</p>
           <form class="email-form" id="notify-form" novalidate>
