@@ -2281,3 +2281,14 @@ section + .divider, hr.divider {
   transition: color 0.2s;
 }
 .footer-social-link:hover { color: var(--blue-lt); }
+
+/* ── Honeypot field (bot trap, visually hidden) ── */
+.hp-field {
+  position: absolute !important;
+  left: -10000px !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

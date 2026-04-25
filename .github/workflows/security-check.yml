@@ -1,0 +1,165 @@
+name: Security Audit
+
+on:
+  schedule:
+    - cron: '0 9 */3 * *'   # Every 3 days at 09:00 UTC
+  workflow_dispatch:         # Manual trigger from Actions tab
+  push:
+    paths:
+      - '_headers'
+      - '.github/workflows/security-check.yml'
+
+jobs:
+  audit:
+    name: Audit security posture
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      TARGET: https://myogeo.org
+
+    steps:
+      - name: Run security audit
+        id: audit
+        run: |
+          set -euo pipefail
+          TARGET="${{ env.TARGET }}"
+          HOST="$(echo "$TARGET" | sed -E 's#https?://##; s#/.*##')"
+
+          echo "==> Fetching headers from $TARGET"
+          HDR_FILE=$(mktemp)
+          curl -sSIL -o /dev/null -D "$HDR_FILE" "$TARGET" || true
+          # Lowercase header names for easier matching
+          awk 'BEGIN{IGNORECASE=1} { sub(/\r$/,""); print }' "$HDR_FILE" > "${HDR_FILE}.norm"
+          HDR=$(cat "${HDR_FILE}.norm")
+
+          pass=0; fail=0; warn=0
+          report=""
+          add_pass() { report="${report}✅ $1%0A"; pass=$((pass+1)); }
+          add_fail() { report="${report}❌ $1%0A"; fail=$((fail+1)); }
+          add_warn() { report="${report}⚠️ $1%0A"; warn=$((warn+1)); }
+
+          has() { echo "$HDR" | grep -qi "^$1:"; }
+          val() { echo "$HDR" | grep -i "^$1:" | head -1 | sed -E "s/^[^:]+:\s*//I" | tr -d '\r'; }
+
+          # 1. HSTS
+          if has "strict-transport-security"; then
+            v=$(val "strict-transport-security")
+            ma=$(echo "$v" | grep -oE 'max-age=[0-9]+' | head -1 | cut -d= -f2 || echo 0)
+            if [ "${ma:-0}" -ge 31536000 ]; then
+              add_pass "HSTS: max-age=$ma (≥1yr)$(echo "$v" | grep -qi preload && echo ', preload' || echo '')"
+            else
+              add_warn "HSTS too short: max-age=$ma"
+            fi
+          else
+            add_fail "HSTS header missing"
+          fi
+
+          # 2. CSP
+          if has "content-security-policy"; then
+            csp=$(val "content-security-policy")
+            if echo "$csp" | grep -qE "script-src[^;]*'unsafe-inline'"; then
+              add_fail "CSP allows 'unsafe-inline' for scripts"
+            else
+              add_pass "CSP script-src is strict (no unsafe-inline)"
+            fi
+            for d in "object-src" "base-uri" "frame-ancestors" "form-action"; do
+              if echo "$csp" | grep -q "$d"; then
+                add_pass "CSP has $d"
+              else
+                add_warn "CSP missing $d"
+              fi
+            done
+          else
+            add_fail "CSP header missing"
+          fi
+
+          # 3. Frame protection
+          has "x-frame-options"     && add_pass "X-Frame-Options: $(val x-frame-options)"     || add_fail "X-Frame-Options missing"
+          has "x-content-type-options" && add_pass "X-Content-Type-Options set"               || add_fail "X-Content-Type-Options missing"
+          has "referrer-policy"     && add_pass "Referrer-Policy: $(val referrer-policy)"    || add_fail "Referrer-Policy missing"
+          has "permissions-policy"  && add_pass "Permissions-Policy set"                      || add_fail "Permissions-Policy missing"
+          has "cross-origin-opener-policy"   && add_pass "COOP set"                          || add_warn "COOP missing"
+          has "cross-origin-resource-policy" && add_pass "CORP set"                          || add_warn "CORP missing"
+
+          # 4. TLS certificate expiry
+          echo "==> Checking TLS cert"
+          end_date=$(echo | openssl s_client -servername "$HOST" -connect "$HOST:443" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2 || echo "")
+          if [ -n "$end_date" ]; then
+            end_ts=$(date -d "$end_date" +%s 2>/dev/null || echo 0)
+            now_ts=$(date +%s)
+            days_left=$(( (end_ts - now_ts) / 86400 ))
+            if [ "$days_left" -lt 14 ]; then
+              add_fail "TLS cert expires in $days_left days"
+            elif [ "$days_left" -lt 30 ]; then
+              add_warn "TLS cert expires in $days_left days"
+            else
+              add_pass "TLS cert valid ($days_left days left)"
+            fi
+          else
+            add_warn "Could not read TLS cert"
+          fi
+
+          # 5. Mozilla Observatory grade
+          echo "==> Querying Mozilla Observatory"
+          obs=$(curl -s -X POST "https://http-observatory.security.mozilla.org/api/v1/analyze?host=$HOST&rescan=true" || echo "")
+          sleep 8
+          obs=$(curl -s "https://http-observatory.security.mozilla.org/api/v1/analyze?host=$HOST" || echo "")
+          grade=$(echo "$obs" | grep -oE '"grade":"[A-F][+-]?"' | head -1 | cut -d'"' -f4 || echo "")
+          score=$(echo "$obs" | grep -oE '"score":-?[0-9]+' | head -1 | cut -d: -f2 || echo "")
+          if [ -n "$grade" ]; then
+            case "$grade" in
+              A*|B*) add_pass "Mozilla Observatory: $grade ($score/100)" ;;
+              C*|D*) add_warn "Mozilla Observatory: $grade ($score/100)" ;;
+              *)     add_fail "Mozilla Observatory: $grade ($score/100)" ;;
+            esac
+          fi
+
+          total=$((pass + fail + warn))
+          when=$(date -u +"%Y-%m-%d %H:%M UTC")
+          if [ "$fail" -gt 0 ]; then status="🔴 FAIL"; elif [ "$warn" -gt 0 ]; then status="🟡 WARN"; else status="🟢 PASS"; fi
+
+          msg="<b>🛡️ MYO_Geo_Orgs Security Audit</b>%0A"
+          msg="${msg}<i>${when}</i>%0A%0A"
+          msg="${msg}<b>Status:</b> ${status}%0A"
+          msg="${msg}<b>Target:</b> ${TARGET}%0A"
+          msg="${msg}<b>Score:</b> ${pass} pass · ${warn} warn · ${fail} fail%0A%0A"
+          msg="${msg}${report}"
+
+          {
+            echo "report<<MSG_EOF"
+            echo "$msg"
+            echo "MSG_EOF"
+            echo "fail_count=$fail"
+            echo "warn_count=$warn"
+            echo "status=$status"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "==== Audit summary ===="
+          echo "Pass: $pass | Warn: $warn | Fail: $fail"
+
+      - name: Send report to Telegram
+        if: always() && env.TG_TOKEN != '' && env.TG_CHAT != ''
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT:  ${{ secrets.TELEGRAM_CHAT_ID }}
+          REPORT:   ${{ steps.audit.outputs.report }}
+        run: |
+          curl -sS -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TG_CHAT}" \
+            --data-urlencode "parse_mode=HTML" \
+            --data-urlencode "disable_web_page_preview=true" \
+            --data-urlencode "text=${REPORT}" \
+            -o /tmp/tg.json
+          if grep -q '"ok":true' /tmp/tg.json; then
+            echo "✓ Sent to Telegram"
+          else
+            echo "✗ Telegram send failed:"
+            cat /tmp/tg.json
+            exit 1
+          fi
+
+      - name: Fail workflow if any critical issue
+        if: steps.audit.outputs.fail_count != '0'
+        run: |
+          echo "Critical security issues found — see Telegram report"
+          exit 1

@@ -293,7 +293,8 @@
         <div class="email-capture reveal">
           <p class="email-label">Get notified when we launch on Google Play</p>
           <form class="email-form" id="notify-form" novalidate>
-            <input type="email" id="notify-email" class="email-input" placeholder="your@email.com" required autocomplete="email" />
+            <div class="hp-field" aria-hidden="true"><label>Leave this empty<input type="text" id="notify-website" name="website" tabindex="-1" autocomplete="off" /></label></div>
+            <input type="email" id="notify-email" class="email-input" placeholder="your@email.com" required autocomplete="email" maxlength="120" />
             <button type="submit" class="email-btn">Notify me</button>
           </form>
           <p class="email-msg" id="notify-msg" aria-live="polite"></p>
@@ -354,42 +355,6 @@
 
   <script src="/assets/js/app.js?v=20260425b" defer></script>
   <script src="/assets/js/lp-effects.js?v=20260425b" defer></script>
-  <script>
-    (function () {
-      var form = document.getElementById('notify-form');
-      if (!form) return;
-      form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        var email = document.getElementById('notify-email').value.trim();
-        var msg   = document.getElementById('notify-msg');
-        if (!email) return;
-        var btn = form.querySelector('.email-btn');
-        btn.disabled = true;
-        btn.textContent = 'Sending…';
-        fetch('https://formspree.io/f/xpwzgrvq', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ email: email })
-        })
-        .then(function (r) {
-          if (r.ok) {
-            msg.textContent = "You're on the list! We'll notify you at launch.";
-            msg.className = 'email-msg email-msg--ok';
-            form.reset();
-          } else {
-            throw new Error();
-          }
-        })
-        .catch(function () {
-          msg.innerHTML = 'Something went wrong — email us at <a href="mailto:support@myogeo.org">support@myogeo.org</a> to be notified.';
-          msg.className = 'email-msg email-msg--err';
-        })
-        .finally(function () {
-          btn.disabled = false;
-          btn.textContent = 'Notify me';
-        });
-      });
-    })();
-  </script>
+  <script src="/assets/js/email-capture.js?v=20260425d" defer></script>
 </body>
 </html>
