@@ -34,9 +34,10 @@ jobs:
 
           pass=0; fail=0; warn=0
           report=""
-          add_pass() { report="${report}✅ $1%0A"; pass=$((pass+1)); }
-          add_fail() { report="${report}❌ $1%0A"; fail=$((fail+1)); }
-          add_warn() { report="${report}⚠️ $1%0A"; warn=$((warn+1)); }
+          NL=$'\n'
+          add_pass() { report="${report}✅ $1${NL}"; pass=$((pass+1)); }
+          add_fail() { report="${report}❌ $1${NL}"; fail=$((fail+1)); }
+          add_warn() { report="${report}⚠️ $1${NL}"; warn=$((warn+1)); }
 
           has() { echo "$HDR" | grep -qi "^$1:"; }
           val() { echo "$HDR" | grep -i "^$1:" | head -1 | sed -E "s/^[^:]+:\s*//I" | tr -d '\r'; }
@@ -118,17 +119,17 @@ jobs:
           when=$(date -u +"%Y-%m-%d %H:%M UTC")
           if [ "$fail" -gt 0 ]; then status="🔴 FAIL"; elif [ "$warn" -gt 0 ]; then status="🟡 WARN"; else status="🟢 PASS"; fi
 
-          msg="<b>🛡️ MYO_Geo_Orgs Security Audit</b>%0A"
-          msg="${msg}<i>${when}</i>%0A%0A"
-          msg="${msg}<b>Status:</b> ${status}%0A"
-          msg="${msg}<b>Target:</b> ${TARGET}%0A"
-          msg="${msg}<b>Score:</b> ${pass} pass · ${warn} warn · ${fail} fail%0A%0A"
+          msg="<b>🛡️ MYO_Geo_Orgs Security Audit</b>${NL}"
+          msg="${msg}<i>${when}</i>${NL}${NL}"
+          msg="${msg}<b>Status:</b> ${status}${NL}"
+          msg="${msg}<b>Target:</b> ${TARGET}${NL}"
+          msg="${msg}<b>Score:</b> ${pass} pass · ${warn} warn · ${fail} fail${NL}${NL}"
           msg="${msg}${report}"
 
+          # Save the rendered message to a file so the next step can read it cleanly
+          printf "%s" "$msg" > /tmp/tg-message.txt
+
           {
-            echo "report<<MSG_EOF"
-            echo "$msg"
-            echo "MSG_EOF"
             echo "fail_count=$fail"
             echo "warn_count=$warn"
             echo "status=$status"
@@ -138,22 +139,43 @@ jobs:
           echo "Pass: $pass | Warn: $warn | Fail: $fail"
 
       - name: Send report to Telegram
-        if: always() && env.TG_TOKEN != '' && env.TG_CHAT != ''
+        if: always()
         env:
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TG_CHAT:  ${{ secrets.TELEGRAM_CHAT_ID }}
-          REPORT:   ${{ steps.audit.outputs.report }}
         run: |
-          curl -sS -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
-            --data-urlencode "chat_id=${TG_CHAT}" \
-            --data-urlencode "parse_mode=HTML" \
-            --data-urlencode "disable_web_page_preview=true" \
-            --data-urlencode "text=${REPORT}" \
-            -o /tmp/tg.json
-          if grep -q '"ok":true' /tmp/tg.json; then
-            echo "✓ Sent to Telegram"
+          set -uo pipefail
+
+          # Trim whitespace/newlines from secrets in case of paste artifacts
+          TOKEN="$(echo -n "$TG_TOKEN" | tr -d '[:space:]')"
+          CHAT="$(echo -n "$TG_CHAT"  | tr -d '[:space:]')"
+
+          if [ -z "$TOKEN" ] || [ -z "$CHAT" ]; then
+            echo "✗ Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID secret"
+            exit 1
+          fi
+
+          if [ ! -s /tmp/tg-message.txt ]; then
+            echo "✗ Audit message file missing"
+            exit 1
+          fi
+
+          # Build JSON body with jq (handles all escaping)
+          BODY=$(jq -n \
+            --arg cid "$CHAT" \
+            --rawfile txt /tmp/tg-message.txt \
+            '{chat_id:$cid, text:$txt, parse_mode:"HTML", disable_web_page_preview:true}')
+
+          HTTP=$(curl -sS -o /tmp/tg.json -w "%{http_code}" \
+            -H "Content-Type: application/json" \
+            -X POST \
+            --data "$BODY" \
+            "https://api.telegram.org/bot${TOKEN}/sendMessage")
+
+          if [ "$HTTP" = "200" ] && grep -q '"ok":true' /tmp/tg.json; then
+            echo "✓ Sent to Telegram (HTTP $HTTP)"
           else
-            echo "✗ Telegram send failed:"
+            echo "✗ Telegram send failed (HTTP $HTTP):"
             cat /tmp/tg.json
             exit 1
           fi
