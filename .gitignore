@@ -1,0 +1,21 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Claude
+.claude/
+
+# Netlify (legacy)
+.netlify/
+netlify.toml
+
+# Logs
+*.log
+npm-debug.log*
+
+# Dependencies (none currently, but future-proof)
+node_modules/
