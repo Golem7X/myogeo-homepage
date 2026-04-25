@@ -36,10 +36,14 @@
     btn.textContent = 'Sending…';
     lastSubmit = now;
 
-    fetch('https://formspree.io/f/xpwzgrvq', {
+    var payload = { email: email };
+    var hp = document.getElementById('notify-website');
+    if (hp) payload.website = hp.value;
+
+    fetch('/api/notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ email: email })
+      body: JSON.stringify(payload)
     })
     .then(function (r) {
       if (r.ok) {
