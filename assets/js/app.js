@@ -189,6 +189,15 @@ backTop.addEventListener('click', function () {
   document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
 }());
 
+/* ── Secret Admin Shortcut (Shift+A) ───────────────────────────────────── */
+document.addEventListener('keydown', function (e) {
+  if (e.shiftKey && e.key === 'A' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+    var tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return; // don't fire while typing
+    location.href = '/admin/';
+  }
+});
+
 /* ── 3D Card Tilt (uses CSS custom properties, CSP-safe) ── */
 (function () {
   var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
