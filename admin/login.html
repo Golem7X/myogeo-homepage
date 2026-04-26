@@ -11,16 +11,17 @@
     :root {
       --bg: #0f1117; --surface: #1a1d27; --border: #2a2d3a;
       --accent: #60a5fa; --text: #e2e8f0; --muted: #8892a4;
-      --err: #f87171; --ok: #4ade80;
+      --err: #f87171; --ok: #4ade80; --yellow: #fbbf24;
     }
     body {
       background: var(--bg); color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 20px;
     }
     .card {
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: 16px; padding: 40px 36px; width: 100%; max-width: 380px;
+      border-radius: 16px; padding: 40px 36px; width: 100%; max-width: 400px;
       box-shadow: 0 20px 60px rgba(0,0,0,.4);
     }
     .logo-row {
@@ -29,27 +30,66 @@
     .logo-row img { width: 36px; height: 36px; border-radius: 8px; }
     .logo-row h1 { font-size: .95rem; font-weight: 700; }
     .logo-row span { display: block; font-size: .72rem; color: var(--muted); font-weight: 400; }
-    h2 { font-size: 1.4rem; margin-bottom: 6px; }
-    .sub { color: var(--muted); font-size: .85rem; margin-bottom: 28px; }
-    label { display: block; font-size: .82rem; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
-    input[type=password] {
-      width: 100%; background: var(--bg); border: 1px solid var(--border);
-      border-radius: 8px; padding: 11px 14px; color: var(--text); font-size: 1rem;
-      outline: none; transition: border-color .2s;
+    h2 { font-size: 1.3rem; margin-bottom: 6px; }
+    .sub { color: var(--muted); font-size: .84rem; margin-bottom: 28px; line-height: 1.5; }
+
+    /* Step indicator */
+    .steps { display: flex; gap: 8px; margin-bottom: 28px; }
+    .step {
+      flex: 1; height: 3px; border-radius: 3px;
+      background: var(--border); transition: background .3s;
     }
-    input[type=password]:focus { border-color: var(--accent); }
-    .btn {
-      width: 100%; margin-top: 18px; padding: 12px;
+    .step.done  { background: var(--ok); }
+    .step.active{ background: var(--accent); }
+
+    /* Send code button */
+    .send-btn {
+      width: 100%; padding: 13px; border-radius: 10px;
+      background: linear-gradient(135deg, #1d4ed8, #2563eb);
+      color: #fff; font-weight: 700; font-size: 1rem;
+      border: none; cursor: pointer; display: flex;
+      align-items: center; justify-content: center; gap: 10px;
+      transition: opacity .2s; position: relative;
+    }
+    .send-btn:disabled { opacity: .5; cursor: default; }
+    .send-btn .tg-icon { font-size: 1.2rem; }
+
+    .divider { display: flex; align-items: center; gap: 12px; margin: 22px 0; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .divider span { font-size: .75rem; color: var(--muted); white-space: nowrap; }
+
+    /* OTP input */
+    .otp-label { font-size: .82rem; color: var(--muted); margin-bottom: 8px; font-weight: 500; display: block; }
+    .otp-input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 13px 16px; color: var(--text);
+      font-size: 1.5rem; font-weight: 700; letter-spacing: .3em;
+      text-align: center; outline: none; transition: border-color .2s;
+    }
+    .otp-input:focus { border-color: var(--accent); }
+    .otp-input::placeholder { font-size: .9rem; letter-spacing: 0; font-weight: 400; opacity: .4; }
+
+    .verify-btn {
+      width: 100%; margin-top: 14px; padding: 13px;
       background: var(--accent); color: #0f1117; font-weight: 700;
-      font-size: 1rem; border: none; border-radius: 8px; cursor: pointer;
+      font-size: 1rem; border: none; border-radius: 10px; cursor: pointer;
       transition: opacity .2s;
     }
-    .btn:disabled { opacity: .5; cursor: default; }
+    .verify-btn:disabled { opacity: .4; cursor: default; }
+
     .msg {
-      margin-top: 14px; font-size: .85rem; text-align: center;
-      min-height: 20px; color: var(--err);
+      margin-top: 14px; font-size: .84rem; text-align: center;
+      min-height: 20px; color: var(--err); line-height: 1.5;
     }
-    .msg.ok { color: var(--ok); }
+    .msg.ok     { color: var(--ok); }
+    .msg.info   { color: var(--yellow); }
+
+    .cooldown {
+      font-size: .75rem; color: var(--muted); text-align: center;
+      margin-top: 10px; min-height: 18px;
+    }
+
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
@@ -58,48 +98,165 @@
       <img src="/assets/logo.png" alt="MYO_Geo_Orgs" />
       <h1>MYO_Geo_Orgs <span>Admin Portal</span></h1>
     </div>
-    <h2>Sign in</h2>
-    <p class="sub">Enter your admin password to continue.</p>
-    <form id="login-form">
-      <label for="pwd">Password</label>
-      <input type="password" id="pwd" placeholder="••••••••" autocomplete="current-password" required autofocus />
-      <button type="submit" class="btn" id="btn">Sign in</button>
-    </form>
+
+    <h2>🔐 Sign in</h2>
+    <p class="sub">A 6-digit code will be sent to your Telegram bot. No password required.</p>
+
+    <!-- Step bar -->
+    <div class="steps">
+      <div class="step active" id="step1"></div>
+      <div class="step" id="step2"></div>
+    </div>
+
+    <!-- Step 1: Send code -->
+    <div id="phase-send">
+      <button class="send-btn" id="send-btn">
+        <span class="tg-icon">✈️</span>
+        Send code to Telegram
+      </button>
+      <p class="cooldown" id="cooldown"></p>
+    </div>
+
+    <!-- Step 2: Enter code (hidden until sent) -->
+    <div id="phase-verify" class="hidden">
+      <div class="divider"><span>Enter the code from Telegram</span></div>
+      <label class="otp-label" for="otp">6-digit code</label>
+      <input
+        type="text" id="otp" class="otp-input"
+        placeholder="• • • • • •"
+        inputmode="numeric" pattern="\d{6}" maxlength="6"
+        autocomplete="one-time-code"
+      />
+      <button class="verify-btn" id="verify-btn">Verify &amp; Sign in</button>
+      <p class="cooldown" style="margin-top:10px">
+        Didn't get it? <a href="#" id="resend-link" style="color:var(--accent)">Resend code</a>
+      </p>
+    </div>
+
     <p class="msg" id="msg"></p>
   </div>
 
   <script>
     'use strict';
-    // If already logged in, go straight to dashboard
-    fetch('/admin/api/data').then(r => { if (r.ok) location.replace('/admin/'); });
 
-    document.getElementById('login-form').addEventListener('submit', async e => {
-      e.preventDefault();
-      const btn = document.getElementById('btn');
-      const msg = document.getElementById('msg');
-      const pwd = document.getElementById('pwd').value;
-      btn.disabled = true; btn.textContent = 'Signing in…';
-      msg.textContent = ''; msg.className = 'msg';
-
-      try {
-        const r = await fetch('/admin/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: pwd }),
-        });
-        if (r.ok) {
-          msg.textContent = 'Redirecting…'; msg.className = 'msg ok';
-          location.replace('/admin/');
-        } else {
-          const d = await r.json();
-          msg.textContent = d.error || 'Login failed.';
-          btn.disabled = false; btn.textContent = 'Sign in';
-        }
-      } catch {
-        msg.textContent = 'Network error — try again.';
-        btn.disabled = false; btn.textContent = 'Sign in';
-      }
+    // Redirect if already logged in
+    fetch('/admin/api/data').then(function(r) {
+      if (r.ok) location.replace('/admin/');
     });
+
+    var COOLDOWN_S = 60;
+    var cooldownEnd = 0;
+    var cooldownTimer = null;
+
+    var sendBtn   = document.getElementById('send-btn');
+    var verifyBtn = document.getElementById('verify-btn');
+    var otpInput  = document.getElementById('otp');
+    var msgEl     = document.getElementById('msg');
+    var cooldownEl= document.getElementById('cooldown');
+    var phaseSend = document.getElementById('phase-send');
+    var phaseVerify = document.getElementById('phase-verify');
+    var step1 = document.getElementById('step1');
+    var step2 = document.getElementById('step2');
+
+    function setMsg(text, type) {
+      msgEl.textContent = text;
+      msgEl.className = 'msg' + (type ? ' ' + type : '');
+    }
+
+    /* ── Send code ── */
+    sendBtn.addEventListener('click', sendCode);
+    document.getElementById('resend-link').addEventListener('click', function(e) {
+      e.preventDefault(); sendCode();
+    });
+
+    function sendCode() {
+      if (Date.now() < cooldownEnd) return;
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = '<span class="tg-icon">⏳</span> Sending…';
+      setMsg('');
+
+      fetch('/admin/api/send-code', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.ok) {
+            // Show verify phase
+            phaseVerify.classList.remove('hidden');
+            step1.classList.remove('active'); step1.classList.add('done');
+            step2.classList.add('active');
+            otpInput.focus();
+            setMsg('✓ Code sent! Check your Telegram bot.', 'ok');
+            startCooldown();
+          } else {
+            setMsg(d.error || 'Failed to send code.', '');
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<span class="tg-icon">✈️</span> Send code to Telegram';
+          }
+        })
+        .catch(function() {
+          setMsg('Network error — try again.', '');
+          sendBtn.disabled = false;
+          sendBtn.innerHTML = '<span class="tg-icon">✈️</span> Send code to Telegram';
+        });
+    }
+
+    function startCooldown() {
+      cooldownEnd = Date.now() + COOLDOWN_S * 1000;
+      sendBtn.innerHTML = '<span class="tg-icon">✈️</span> Send code to Telegram';
+      if (cooldownTimer) clearInterval(cooldownTimer);
+      cooldownTimer = setInterval(function() {
+        var left = Math.ceil((cooldownEnd - Date.now()) / 1000);
+        if (left <= 0) {
+          clearInterval(cooldownTimer);
+          sendBtn.disabled = false;
+          cooldownEl.textContent = '';
+        } else {
+          sendBtn.disabled = true;
+          cooldownEl.textContent = 'Resend available in ' + left + 's';
+        }
+      }, 1000);
+    }
+
+    /* ── Verify code ── */
+    otpInput.addEventListener('input', function() {
+      // Auto-strip non-digits
+      this.value = this.value.replace(/\D/g, '').slice(0, 6);
+      // Auto-submit when 6 digits entered
+      if (this.value.length === 6) verifyCode();
+    });
+
+    verifyBtn.addEventListener('click', verifyCode);
+
+    function verifyCode() {
+      var code = otpInput.value.trim();
+      if (code.length !== 6) { setMsg('Enter the full 6-digit code.', ''); return; }
+      verifyBtn.disabled = true; verifyBtn.textContent = 'Verifying…';
+      setMsg('', '');
+
+      fetch('/admin/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code }),
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) {
+          step2.classList.remove('active'); step2.classList.add('done');
+          setMsg('✓ Verified! Redirecting…', 'ok');
+          setTimeout(function() { location.replace('/admin/'); }, 600);
+        } else {
+          setMsg(d.error || 'Invalid code — try again.', '');
+          otpInput.value = '';
+          otpInput.focus();
+          verifyBtn.disabled = false;
+          verifyBtn.textContent = 'Verify & Sign in';
+        }
+      })
+      .catch(function() {
+        setMsg('Network error — try again.', '');
+        verifyBtn.disabled = false;
+        verifyBtn.textContent = 'Verify & Sign in';
+      });
+    }
   </script>
 </body>
 </html>

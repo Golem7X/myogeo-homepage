@@ -1,37 +1,35 @@
 /**
  * POST /admin/api/login
- * Validates the admin password and sets a signed session cookie.
+ *
+ * Verifies a 6-digit OTP (sent to Telegram by /admin/api/send-code).
+ * On success, sets a signed 24-hour session cookie.
  */
 
+import { verifyOTP } from './_otp.js';
 import { makeSessionCookie } from './_auth.js';
 
 export async function onRequestPost(context) {
   const { request, env } = context;
 
-  if (!env.ADMIN_PASSWORD) {
+  if (!env.ADMIN_OTP_SECRET) {
     return json({ error: 'Admin not configured' }, 503);
   }
 
   let body;
   try { body = await request.json(); } catch { return json({ error: 'Bad request' }, 400); }
 
-  const password = (body.password || '').trim();
+  const code = String(body.code || '').trim();
 
-  // Constant-time comparison via timing-safe HMAC trick
-  const correct = env.ADMIN_PASSWORD;
-  let match = password.length === correct.length;
-  let diff = 0;
-  const len = Math.min(password.length, correct.length);
-  for (let i = 0; i < len; i++) diff |= password.charCodeAt(i) ^ correct.charCodeAt(i);
-  match = match && diff === 0;
+  const valid = await verifyOTP(code, env.ADMIN_OTP_SECRET);
 
-  if (!match) {
-    // Artificial 300 ms delay to slow brute-force attempts
-    await new Promise(r => setTimeout(r, 300));
-    return json({ error: 'Invalid password' }, 401);
+  if (!valid) {
+    // Artificial delay to slow brute-force attempts
+    await new Promise(r => setTimeout(r, 400));
+    return json({ error: 'Invalid or expired code' }, 401);
   }
 
-  const cookie = await makeSessionCookie(env.ADMIN_PASSWORD);
+  const cookie = await makeSessionCookie(env.ADMIN_OTP_SECRET);
+
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: {

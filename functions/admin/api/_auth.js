@@ -3,7 +3,7 @@
  *
  * Session token format: `${ts}.${hmac}`
  *   ts   — Unix seconds of issue time
- *   hmac — HMAC-SHA256(ts, ADMIN_PASSWORD), hex-encoded
+ *   hmac — HMAC-SHA256(ts, ADMIN_OTP_SECRET), hex-encoded
  *
  * Tokens expire after 24 hours.
  */
@@ -17,7 +17,7 @@ const COOKIE_NAME = 'admin_session';
 export async function isAuthenticated(request, env) {
   const token = getCookie(request, COOKIE_NAME);
   if (!token) return false;
-  return verifyToken(token, env.ADMIN_PASSWORD);
+  return verifyToken(token, env.ADMIN_OTP_SECRET);
 }
 
 /** Returns a 401 JSON response. */
@@ -29,9 +29,9 @@ export function unauthorized() {
 }
 
 /** Creates a signed session cookie string. */
-export async function makeSessionCookie(password) {
+export async function makeSessionCookie(secret) {
   const ts = Math.floor(Date.now() / 1000).toString();
-  const hmac = await sign(ts, password);
+  const hmac = await sign(ts, secret);
   const token = `${ts}.${hmac}`;
   return `${COOKIE_NAME}=${token}; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_TTL}; Path=/admin`;
 }
