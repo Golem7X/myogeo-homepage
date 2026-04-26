@@ -30,7 +30,7 @@ export async function onRequestGet(context) {
 
   // Try to get an access token
   try {
-    const token = await getGoogleAccessToken(env.GOOGLE_SERVICE_ACCOUNT_EMAIL, env.GOOGLE_PRIVATE_KEY);
+    const token = await getGoogleAccessToken(env.GOOGLE_SERVICE_ACCOUNT_EMAIL.trim(), env.GOOGLE_PRIVATE_KEY);
     debug.token_obtained = !!token;
     debug.token_first_chars = token ? token.slice(0, 20) : null;
 
@@ -42,7 +42,7 @@ export async function onRequestGet(context) {
     // Try to append a row
     const range = encodeURIComponent('Geonify!A:E');
     const url = 'https://sheets.googleapis.com/v4/spreadsheets/' +
-      env.GOOGLE_SHEET_ID + '/values/' + range +
+      env.GOOGLE_SHEET_ID.trim() + '/values/' + range +
       ':append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS';
 
     const res = await fetch(url, {
@@ -83,11 +83,11 @@ async function getGoogleAccessToken(serviceAccountEmail, rawPrivateKey) {
 
   const signingInput = b64url(header) + '.' + b64url(payload);
 
-  const pem = rawPrivateKey.replace(/\\n/g, '\n');
+  let pem = rawPrivateKey.replace(/\\n/g, '\n').trim();
   const pemBody = pem
-    .replace('-----BEGIN PRIVATE KEY-----', '')
-    .replace('-----END PRIVATE KEY-----', '')
-    .replace(/\s/g, '');
+    .replace(/-----BEGIN [A-Z ]+-----/g, '')
+    .replace(/-----END [A-Z ]+-----/g, '')
+    .replace(/[^A-Za-z0-9+/=]/g, '');
   const der = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
 
   const cryptoKey = await crypto.subtle.importKey(
