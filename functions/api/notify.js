@@ -94,18 +94,22 @@ export async function onRequestPost(context) {
     ).catch(() => { /* swallow — Telegram outage must not break signup */ });
   }
 
-  // 2. Log to Google Sheets (non-blocking on failure)
+  // 2. Log to Google Sheets (non-blocking on failure). waitUntil keeps the
+  //    worker alive long enough for the API call to complete after we've
+  //    already returned the response to the user.
   if (env.GOOGLE_SERVICE_ACCOUNT_EMAIL && env.GOOGLE_PRIVATE_KEY && env.GOOGLE_SHEET_ID) {
-    appendToSheet({
+    const sheetsPromise = appendToSheet({
       email,
       appName,
       country,
       ip,
       timestamp,
-      serviceAccountEmail: env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      serviceAccountEmail: env.GOOGLE_SERVICE_ACCOUNT_EMAIL.trim(),
       privateKey: env.GOOGLE_PRIVATE_KEY,
-      sheetId: env.GOOGLE_SHEET_ID,
+      sheetId: env.GOOGLE_SHEET_ID.trim(),
     }).catch(() => { /* swallow — Sheets outage must not break signup */ });
+
+    if (context.waitUntil) context.waitUntil(sheetsPromise);
   }
 
   return json({ ok: true });
@@ -153,12 +157,15 @@ async function getGoogleAccessToken(serviceAccountEmail, rawPrivateKey) {
 
     const signingInput = b64url(header) + '.' + b64url(payload);
 
-    // Import the RSA private key (PEM → PKCS8 DER)
-    const pem = rawPrivateKey.replace(/\\n/g, '\n');
+    // Import the RSA private key (PEM → PKCS8 DER) — robust to common paste mistakes
+    let pem = rawPrivateKey.replace(/\\n/g, '\n').trim();
+    // Strip header/footer if present, then strip ALL whitespace and any stray
+    // characters that aren't valid base64. This recovers from missing BEGIN/END
+    // markers or accidental leading/trailing characters from copy-paste errors.
     const pemBody = pem
-      .replace('-----BEGIN PRIVATE KEY-----', '')
-      .replace('-----END PRIVATE KEY-----', '')
-      .replace(/\s/g, '');
+      .replace(/-----BEGIN [A-Z ]+-----/g, '')
+      .replace(/-----END [A-Z ]+-----/g, '')
+      .replace(/[^A-Za-z0-9+/=]/g, '');
     const der = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
 
     const cryptoKey = await crypto.subtle.importKey(
