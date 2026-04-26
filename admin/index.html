@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard · MYO_Geo_Orgs</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" type="image/png" href="/assets/logo.png" />
+  <link rel="stylesheet" href="/assets/css/admin.css" />
+</head>
+<body>
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="brand">
+        <img src="/assets/logo.png" alt="MYO_Geo_Orgs" />
+        <div>
+          <span class="brand-name">MYO_Geo_Orgs</span>
+          <span class="brand-sub">Admin Portal</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item active" href="#overview" data-section="overview">
+          <span class="nav-icon">📊</span> Overview
+        </a>
+        <a class="nav-item" href="#apps" data-section="apps">
+          <span class="nav-icon">📱</span> Apps
+        </a>
+        <a class="nav-item" href="#signups" data-section="signups">
+          <span class="nav-icon">📧</span> Signups
+        </a>
+        <a class="nav-item" href="#links" data-section="links">
+          <span class="nav-icon">🔗</span> Quick Links
+        </a>
+      </nav>
+    </div>
+    <div class="sidebar-bottom">
+      <button class="logout-btn" id="logout-btn">← Sign out</button>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main">
+
+    <!-- Header -->
+    <header class="topbar">
+      <div>
+        <h1 class="page-title" id="page-title">Overview</h1>
+        <p class="page-sub" id="page-sub">All apps at a glance</p>
+      </div>
+      <div class="topbar-right">
+        <span class="refresh-btn" id="refresh-btn" title="Refresh data">↻ Refresh</span>
+        <span class="last-updated" id="last-updated">Loading…</span>
+      </div>
+    </header>
+
+    <!-- Loading state -->
+    <div class="loading-state" id="loading-state">
+      <div class="spinner"></div>
+      <p>Loading dashboard…</p>
+    </div>
+
+    <!-- Error state -->
+    <div class="error-state hidden" id="error-state">
+      <p>⚠️ Failed to load data. <a href="/admin/login.html">Re-login?</a></p>
+    </div>
+
+    <!-- ── Section: Overview ── -->
+    <section class="section active" id="section-overview">
+      <div class="stat-grid" id="stat-grid">
+        <!-- Filled by JS -->
+      </div>
+      <div class="card mt">
+        <div class="card-header">
+          <h2 class="card-title">Recent signups — all apps</h2>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="recent-table">
+            <thead>
+              <tr><th>Time</th><th>Email</th><th>App</th><th>Country</th></tr>
+            </thead>
+            <tbody id="recent-body">
+              <tr><td colspan="4" class="empty">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Section: Apps ── -->
+    <section class="section hidden" id="section-apps">
+      <div class="app-grid" id="app-grid">
+        <!-- Filled by JS -->
+      </div>
+
+      <!-- Edit app panel -->
+      <div class="card mt" id="edit-panel" style="display:none">
+        <div class="card-header">
+          <h2 class="card-title" id="edit-title">Edit App</h2>
+        </div>
+        <form id="edit-form" class="edit-form">
+          <input type="hidden" id="edit-app-name" />
+          <div class="form-row">
+            <label>Status</label>
+            <select id="edit-status">
+              <option>Coming Soon</option>
+              <option>Beta</option>
+              <option>Live</option>
+              <option>Paused</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Beta card active</label>
+            <label class="toggle">
+              <input type="checkbox" id="edit-beta" />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Play Store / Beta URL</label>
+            <input type="url" id="edit-play-url" placeholder="https://play.google.com/…" />
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Save changes</button>
+            <button type="button" class="btn-ghost" id="edit-cancel">Cancel</button>
+          </div>
+          <p class="save-msg" id="save-msg"></p>
+        </form>
+      </div>
+    </section>
+
+    <!-- ── Section: Signups ── -->
+    <section class="section hidden" id="section-signups">
+      <div id="signups-per-app">
+        <!-- Filled by JS -->
+      </div>
+    </section>
+
+    <!-- ── Section: Quick Links ── -->
+    <section class="section hidden" id="section-links">
+      <div class="links-grid">
+        <a class="link-card" href="https://docs.google.com/spreadsheets/d/117usf7nfqN7XrGHhGOZM3OkXxWCc5aGa_-PeClJvehc/edit" target="_blank" rel="noopener">
+          <span class="link-icon">📊</span>
+          <div><strong>Signups Sheet</strong><span>MYO_Geo_Orgs Signups</span></div>
+        </a>
+        <a class="link-card" href="https://dash.cloudflare.com/" target="_blank" rel="noopener">
+          <span class="link-icon">☁️</span>
+          <div><strong>Cloudflare</strong><span>Pages, DNS, Security</span></div>
+        </a>
+        <a class="link-card" href="https://github.com/Golem7X/myogeo-homepage" target="_blank" rel="noopener">
+          <span class="link-icon">🐙</span>
+          <div><strong>GitHub</strong><span>myogeo-homepage repo</span></div>
+        </a>
+        <a class="link-card" href="https://play.google.com/console/" target="_blank" rel="noopener">
+          <span class="link-icon">▶️</span>
+          <div><strong>Play Console</strong><span>Google Play apps</span></div>
+        </a>
+        <a class="link-card" href="https://console.cloud.google.com/iam-admin/serviceaccounts?project=myo-geo-orgs" target="_blank" rel="noopener">
+          <span class="link-icon">🔑</span>
+          <div><strong>Google Cloud</strong><span>Service accounts, APIs</span></div>
+        </a>
+        <a class="link-card" href="https://myogeo.org/" target="_blank" rel="noopener">
+          <span class="link-icon">🌐</span>
+          <div><strong>Live Site</strong><span>myogeo.org</span></div>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/assets/js/admin.js"></script>
+</body>
+</html>

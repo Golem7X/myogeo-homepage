@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin · MYO_Geo_Orgs</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" type="image/png" href="/assets/logo.png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --surface: #1a1d27; --border: #2a2d3a;
+      --accent: #60a5fa; --text: #e2e8f0; --muted: #8892a4;
+      --err: #f87171; --ok: #4ade80;
+    }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 40px 36px; width: 100%; max-width: 380px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.4);
+    }
+    .logo-row {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 28px;
+    }
+    .logo-row img { width: 36px; height: 36px; border-radius: 8px; }
+    .logo-row h1 { font-size: .95rem; font-weight: 700; }
+    .logo-row span { display: block; font-size: .72rem; color: var(--muted); font-weight: 400; }
+    h2 { font-size: 1.4rem; margin-bottom: 6px; }
+    .sub { color: var(--muted); font-size: .85rem; margin-bottom: 28px; }
+    label { display: block; font-size: .82rem; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+    input[type=password] {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 11px 14px; color: var(--text); font-size: 1rem;
+      outline: none; transition: border-color .2s;
+    }
+    input[type=password]:focus { border-color: var(--accent); }
+    .btn {
+      width: 100%; margin-top: 18px; padding: 12px;
+      background: var(--accent); color: #0f1117; font-weight: 700;
+      font-size: 1rem; border: none; border-radius: 8px; cursor: pointer;
+      transition: opacity .2s;
+    }
+    .btn:disabled { opacity: .5; cursor: default; }
+    .msg {
+      margin-top: 14px; font-size: .85rem; text-align: center;
+      min-height: 20px; color: var(--err);
+    }
+    .msg.ok { color: var(--ok); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo-row">
+      <img src="/assets/logo.png" alt="MYO_Geo_Orgs" />
+      <h1>MYO_Geo_Orgs <span>Admin Portal</span></h1>
+    </div>
+    <h2>Sign in</h2>
+    <p class="sub">Enter your admin password to continue.</p>
+    <form id="login-form">
+      <label for="pwd">Password</label>
+      <input type="password" id="pwd" placeholder="••••••••" autocomplete="current-password" required autofocus />
+      <button type="submit" class="btn" id="btn">Sign in</button>
+    </form>
+    <p class="msg" id="msg"></p>
+  </div>
+
+  <script>
+    'use strict';
+    // If already logged in, go straight to dashboard
+    fetch('/admin/api/data').then(r => { if (r.ok) location.replace('/admin/'); });
+
+    document.getElementById('login-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = document.getElementById('btn');
+      const msg = document.getElementById('msg');
+      const pwd = document.getElementById('pwd').value;
+      btn.disabled = true; btn.textContent = 'Signing in…';
+      msg.textContent = ''; msg.className = 'msg';
+
+      try {
+        const r = await fetch('/admin/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pwd }),
+        });
+        if (r.ok) {
+          msg.textContent = 'Redirecting…'; msg.className = 'msg ok';
+          location.replace('/admin/');
+        } else {
+          const d = await r.json();
+          msg.textContent = d.error || 'Login failed.';
+          btn.disabled = false; btn.textContent = 'Sign in';
+        }
+      } catch {
+        msg.textContent = 'Network error — try again.';
+        btn.disabled = false; btn.textContent = 'Sign in';
+      }
+    });
+  </script>
+</body>
+</html>
