@@ -159,16 +159,18 @@
 
     state.apps.forEach(function (app) {
       var block = el('div', 'app-signup-block card');
-      var rows = app.recent.length
-        ? app.recent.map(function (r) {
-          return '<tr>' +
+      var rowList = app.allRows || app.recent;
+      var rows = rowList.length
+        ? rowList.map(function (r) {
+          return '<tr data-app="' + esc(app.name) + '" data-row="' + r.sheetRowIndex + '">' +
             '<td>' + fmtTime(r.timestamp) + '</td>' +
             '<td>' + esc(r.email) + '</td>' +
             '<td>' + esc(r.country) + '</td>' +
             '<td>' + esc(r.ip) + '</td>' +
+            '<td><button class="del-btn" title="Delete this row">🗑</button></td>' +
             '</tr>';
         }).join('')
-        : '<tr><td colspan="4" class="empty">No signups yet</td></tr>';
+        : '<tr><td colspan="5" class="empty">No signups yet</td></tr>';
 
       block.innerHTML =
         '<div class="card-header">' +
@@ -176,10 +178,44 @@
           '<span style="font-size:.78rem;color:var(--muted)">' + app.total + ' total</span>' +
         '</div>' +
         '<div class="table-wrap"><table class="data-table">' +
-          '<thead><tr><th>Time</th><th>Email</th><th>Country</th><th>IP</th></tr></thead>' +
+          '<thead><tr><th>Time</th><th>Email</th><th>Country</th><th>IP</th><th></th></tr></thead>' +
           '<tbody>' + rows + '</tbody>' +
         '</table></div>';
       container.appendChild(block);
+    });
+
+    // Wire up delete buttons
+    container.querySelectorAll('.del-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var tr  = btn.closest('tr');
+        var app = tr.dataset.app;
+        var row = parseInt(tr.dataset.row, 10);
+        if (!confirm('Delete this signup entry? This cannot be undone.')) return;
+        btn.disabled = true; btn.textContent = '…';
+
+        fetch('/admin/api/signups', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ app: app, sheetRowIndex: row }),
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d.ok) {
+            tr.remove();
+            // Update total count in state
+            var appState = state.apps.find(function (a) { return a.name === app; });
+            if (appState) appState.total = Math.max(0, appState.total - 1);
+            renderOverview();
+          } else {
+            alert('Delete failed: ' + (d.error || 'unknown error'));
+            btn.disabled = false; btn.textContent = '🗑';
+          }
+        })
+        .catch(function () {
+          alert('Network error — try again.');
+          btn.disabled = false; btn.textContent = '🗑';
+        });
+      });
     });
   }
 

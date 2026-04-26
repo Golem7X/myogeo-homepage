@@ -35,16 +35,19 @@ export async function onRequestGet(context) {
   // Read signup data per app tab
   const apps = await Promise.all(appTabs.map(async name => {
     const rows = await readSheet(token, sheetId, `${name}!A:E`);
-    const dataRows = rows.slice(1); // skip header
+    const dataRows = rows.slice(1); // skip header (row 0 is header)
     const total = dataRows.length;
-    const recent = dataRows.slice(-RECENT_ROWS).reverse().map(r => ({
-      timestamp: r[0] || '',
-      email:     r[1] || '',
-      app:       r[2] || name,
-      country:   r[3] || '?',
-      ip:        r[4] || '?',
+    // Return all rows with their 0-based sheet row index (header = 0, first data = 1)
+    const allRows = dataRows.map((r, i) => ({
+      timestamp:     r[0] || '',
+      email:         r[1] || '',
+      app:           r[2] || name,
+      country:       r[3] || '?',
+      ip:            r[4] || '?',
+      sheetRowIndex: i + 1,  // 0-based; +1 because row 0 is the header
     }));
-    return { name, total, recent };
+    const recent = allRows.slice(-RECENT_ROWS).reverse();
+    return { name, total, recent, allRows: allRows.slice().reverse() };
   }));
 
   // Read Config tab
