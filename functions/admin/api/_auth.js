@@ -8,7 +8,7 @@
  * Tokens expire after 24 hours.
  */
 
-const SESSION_TTL = 86400; // 24 h
+const SESSION_TTL = 1800; // 30 min
 const COOKIE_NAME = 'admin_session';
 
 // ── Public helpers ───────────────────────────────────────────────────────────
