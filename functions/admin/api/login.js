@@ -6,11 +6,12 @@
  *
  * Brute-force defenses (KV-backed, see _ratelimit.js):
  *  - 5 attempts per 5 minutes per IP, 30 per 5 minutes globally
- *  - Codes are single-use: a successfully used code is stored in KV
- *    and rejected on replay for 15 minutes (covers the ±1 skew window)
+ *  - With ADMIN_KV: codes are random, stored hashed, and deleted on
+ *    successful use — truly single-use, fresh code available any time
+ *  - Without KV: falls back to stateless TOTP verification
  */
 
-import { verifyOTP } from './_otp.js';
+import { verifyOTP, sha256hex, timingSafeEqual } from './_otp.js';
 import { makeSessionCookie } from './_auth.js';
 import { rateLimit, tooManyRequests, clientIP } from './_ratelimit.js';
 
@@ -32,20 +33,25 @@ export async function onRequestPost(context) {
 
   const code = String(body.code || '').trim();
 
-  // Reject codes that were already used for a successful login
-  const used = env.ADMIN_KV ? await env.ADMIN_KV.get('otp_used:' + code) : null;
-
-  const valid = !used && await verifyOTP(code, env.ADMIN_OTP_SECRET);
+  let valid = false;
+  if (env.ADMIN_KV) {
+    // KV mode: compare against the stored hash of the last sent code,
+    // then delete it so the code can never be reused
+    const storedHash = await env.ADMIN_KV.get('otp:current');
+    if (storedHash && /^\d{6}$/.test(code) &&
+        timingSafeEqual(await sha256hex(code), storedHash)) {
+      valid = true;
+      await env.ADMIN_KV.delete('otp:current');
+    }
+  } else {
+    // Fallback: stateless TOTP (not single-use — KV unavailable)
+    valid = await verifyOTP(code, env.ADMIN_OTP_SECRET);
+  }
 
   if (!valid) {
     // Artificial delay to slow brute-force attempts
     await new Promise(r => setTimeout(r, 400));
     return json({ error: 'Invalid or expired code' }, 401);
-  }
-
-  // Mark the code as consumed (single-use)
-  if (env.ADMIN_KV) {
-    await env.ADMIN_KV.put('otp_used:' + code, '1', { expirationTtl: 900 });
   }
 
   const cookie = await makeSessionCookie(env.ADMIN_OTP_SECRET);

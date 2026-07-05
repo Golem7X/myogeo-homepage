@@ -1,16 +1,19 @@
 /**
  * POST /admin/api/send-code
  *
- * Generates a time-based 6-digit OTP and sends it to the admin's Telegram chat.
- * The OTP is valid for 5 minutes. No state storage needed — the code is derived
- * deterministically from (ADMIN_OTP_SECRET, 5-minute time window).
+ * Generates a 6-digit OTP and sends it to the admin's Telegram chat.
+ * The OTP is valid for 5 minutes.
+ *
+ * With ADMIN_KV bound: the code is random and stored hashed in KV, so every
+ * request yields a fresh single-use code (logout → login works immediately).
+ * Without KV: falls back to stateless TOTP derived from ADMIN_OTP_SECRET.
  *
  * Rate-limited server-side via KV (see _ratelimit.js): 3 requests per
  * 5 minutes per IP, 10 per 5 minutes globally — prevents Telegram spam.
  * The client-side 60-second cooldown is UX only, not a security control.
  */
 
-import { generateOTP } from './_otp.js';
+import { generateOTP, randomOTP, sha256hex } from './_otp.js';
 import { rateLimit, tooManyRequests, clientIP } from './_ratelimit.js';
 
 export async function onRequestPost(context) {
@@ -29,8 +32,16 @@ export async function onRequestPost(context) {
     return json({ error: 'Telegram not configured' }, 503);
   }
 
-  const code = await generateOTP(env.ADMIN_OTP_SECRET);
-  const now  = new Date().toISOString();
+  let code;
+  if (env.ADMIN_KV) {
+    // Fresh random code on every request; newest one wins
+    code = randomOTP();
+    await env.ADMIN_KV.put('otp:current', await sha256hex(code), { expirationTtl: 300 });
+  } else {
+    // KV not bound — stateless TOTP fallback
+    code = await generateOTP(env.ADMIN_OTP_SECRET);
+  }
+  const now = new Date().toISOString();
 
   const text =
     '🔐 <b>MYO_Geo_Orgs Admin Login</b>\n\n' +

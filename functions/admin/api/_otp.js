@@ -1,14 +1,29 @@
 /**
- * Time-based OTP helpers (TOTP-style, 5-minute window).
+ * OTP helpers.
  *
- * Code = HMAC-SHA256(secret, floor(epoch_seconds / 300)) mod 1_000_000
- * padded to 6 digits.
+ * Primary mode (ADMIN_KV bound): random 6-digit codes, stored hashed in KV
+ * for 5 minutes and deleted on successful use. Every send-code request
+ * produces a fresh code, so logout → login works immediately.
  *
- * Verification checks windows [-1, 0, +1] to tolerate up to 5 minutes of
- * clock skew between client and server.
+ * Fallback mode (no KV): stateless TOTP-style codes derived from
+ * HMAC-SHA256(secret, floor(epoch_seconds / 300)) mod 1_000_000, checking
+ * windows [-1, 0, +1] for clock skew.
  */
 
 const WINDOW_SECONDS = 300; // 5 minutes
+
+/** Cryptographically random 6-digit code. */
+export function randomOTP() {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return String(buf[0] % 1_000_000).padStart(6, '0');
+}
+
+/** SHA-256 hex digest of a string. */
+export async function sha256hex(s) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 export async function generateOTP(secret, windowOffset = 0) {
   const counter = Math.floor(Date.now() / 1000 / WINDOW_SECONDS) + windowOffset;
@@ -43,7 +58,7 @@ async function hotp(secret, counter) {
   return String(code).padStart(6, '0');
 }
 
-function timingSafeEqual(a, b) {
+export function timingSafeEqual(a, b) {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
