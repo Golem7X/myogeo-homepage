@@ -5,18 +5,25 @@
  * The OTP is valid for 5 minutes. No state storage needed — the code is derived
  * deterministically from (ADMIN_OTP_SECRET, 5-minute time window).
  *
- * Rate-limited: one request per 60 seconds per session (enforced client-side;
- * the server does not track IPs to avoid complexity, but the OTP window already
- * limits replay attacks).
+ * Rate-limited server-side via KV (see _ratelimit.js): 3 requests per
+ * 5 minutes per IP, 10 per 5 minutes globally — prevents Telegram spam.
+ * The client-side 60-second cooldown is UX only, not a security control.
  */
 
 import { generateOTP } from './_otp.js';
+import { rateLimit, tooManyRequests, clientIP } from './_ratelimit.js';
 
 export async function onRequestPost(context) {
-  const { env } = context;
+  const { request, env } = context;
 
   if (!env.ADMIN_OTP_SECRET) {
     return json({ error: 'OTP not configured' }, 503);
+  }
+
+  const ip = clientIP(request);
+  if (!await rateLimit(env, 'sendcode:' + ip, 3, 300) ||
+      !await rateLimit(env, 'sendcode:global', 10, 300)) {
+    return tooManyRequests();
   }
   if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) {
     return json({ error: 'Telegram not configured' }, 503);

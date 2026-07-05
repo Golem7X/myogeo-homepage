@@ -5,7 +5,7 @@
  *   ts   — Unix seconds of issue time
  *   hmac — HMAC-SHA256(ts, ADMIN_OTP_SECRET), hex-encoded
  *
- * Tokens expire after 24 hours.
+ * Tokens expire after SESSION_TTL (30 minutes).
  */
 
 const SESSION_TTL = 1800; // 30 min
