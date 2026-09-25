@@ -9,6 +9,7 @@ import { isAuthenticated, unauthorized } from './_auth.js';
 import { getAccessToken, readSheet, updateRange, appendRows, getSheetMeta } from './_sheets.js';
 
 const CONFIG_TAB = 'Config';
+const STATUSES = ['Coming Soon', 'Beta', 'Live', 'Paused'];
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -26,7 +27,7 @@ export async function onRequestGet(context) {
   const config = rows.slice(1).map(r => ({
     app:     r[0] || '',
     status:  r[1] || 'Coming Soon',
-    beta:    r[2] === 'true',
+    beta:    String(r[2]).toLowerCase() === 'true',
     playUrl: r[3] || '',
     updated: r[4] || '',
   }));
@@ -41,7 +42,12 @@ export async function onRequestPost(context) {
   try { body = await request.json(); } catch { return json({ error: 'Bad request' }, 400); }
 
   const { app, status, beta, playUrl } = body;
-  if (!app) return json({ error: 'app required' }, 400);
+  if (typeof app !== 'string' || !app || app.length > 50) return json({ error: 'app required' }, 400);
+  if (status && !STATUSES.includes(status)) return json({ error: 'Invalid status' }, 400);
+  // Only https links — the dashboard renders playUrl as an <a href>
+  if (playUrl && (typeof playUrl !== 'string' || !/^https:\/\/[^\s"'<>]+$/.test(playUrl) || playUrl.length > 300)) {
+    return json({ error: 'playUrl must be an https:// URL' }, 400);
+  }
 
   const token = await getAccessToken(env);
   if (!token) return json({ error: 'Google auth failed' }, 503);

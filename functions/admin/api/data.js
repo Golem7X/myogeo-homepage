@@ -57,7 +57,7 @@ export async function onRequestGet(context) {
     config = rows.slice(1).map(r => ({
       app:     r[0] || '',
       status:  r[1] || 'Coming Soon',
-      beta:    r[2] === 'true',
+      beta:    String(r[2]).toLowerCase() === 'true',
       playUrl: r[3] || '',
       updated: r[4] || '',
     }));
