@@ -102,9 +102,8 @@ jobs:
 
           # 5. Mozilla Observatory grade
           echo "==> Querying Mozilla Observatory"
-          obs=$(curl -s -X POST "https://http-observatory.security.mozilla.org/api/v1/analyze?host=$HOST&rescan=true" || echo "")
-          sleep 8
-          obs=$(curl -s "https://http-observatory.security.mozilla.org/api/v1/analyze?host=$HOST" || echo "")
+          # v1 API was retired in 2024; v2 scans synchronously
+          obs=$(curl -s -X POST "https://observatory-api.mdn.mozilla.net/api/v2/scan?host=$HOST" || echo "")
           grade=$(echo "$obs" | grep -oE '"grade":"[A-F][+-]?"' | head -1 | cut -d'"' -f4 || echo "")
           score=$(echo "$obs" | grep -oE '"score":-?[0-9]+' | head -1 | cut -d: -f2 || echo "")
           if [ -n "$grade" ]; then
@@ -113,6 +112,8 @@ jobs:
               C*|D*) add_warn "Mozilla Observatory: $grade ($score/100)" ;;
               *)     add_fail "Mozilla Observatory: $grade ($score/100)" ;;
             esac
+          else
+            add_warn "Mozilla Observatory: no grade returned"
           fi
 
           total=$((pass + fail + warn))

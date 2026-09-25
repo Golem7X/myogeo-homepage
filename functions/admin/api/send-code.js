@@ -37,6 +37,7 @@ export async function onRequestPost(context) {
     // Fresh random code on every request; newest one wins
     code = randomOTP();
     await env.ADMIN_KV.put('otp:current', await sha256hex(code), { expirationTtl: 300 });
+    await env.ADMIN_KV.delete('otp:fails');
   } else {
     // KV not bound — stateless TOTP fallback
     code = await generateOTP(env.ADMIN_OTP_SECRET);

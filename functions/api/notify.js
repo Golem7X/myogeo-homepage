@@ -28,6 +28,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAIL_LEN = 120;
 const MAX_BODY_BYTES = 1024;
 const DEFAULT_APP = 'Geonify';
+// Sheet tabs that hold admin data, never signups
+const RESERVED_TABS = ['config'];
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -64,6 +66,9 @@ export async function onRequestPost(context) {
   // App name — sanitised, max 50 chars, alphanumeric + spaces + hyphens only
   const rawApp = typeof body?.app === 'string' ? body.app.trim() : DEFAULT_APP;
   const appName = rawApp.replace(/[^a-zA-Z0-9 \-_]/g, '').slice(0, 50) || DEFAULT_APP;
+  if (RESERVED_TABS.includes(appName.toLowerCase())) {
+    return json({ error: 'Invalid app' }, 400);
+  }
 
   const ip      = request.headers.get('CF-Connecting-IP') || 'unknown';
   const country = (request.cf && request.cf.country) || '?';
@@ -123,9 +128,11 @@ async function appendToSheet({ email, appName, country, ip, timestamp,
   if (!token) return;
 
   // Tab name = app name (e.g. "Geonify"). Sheets API uses !A:E range notation.
+  // RAW input: user-supplied values are stored as text, never parsed as
+  // formulas (blocks =IMPORTXML(...)-style spreadsheet injection).
   const range = encodeURIComponent(appName + '!A:E');
   const url = 'https://sheets.googleapis.com/v4/spreadsheets/' +
-    sheetId + '/values/' + range + ':append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS';
+    sheetId + '/values/' + range + ':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS';
 
   await fetch(url, {
     method: 'POST',

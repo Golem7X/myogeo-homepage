@@ -8,12 +8,15 @@
  *  - 5 attempts per 5 minutes per IP, 30 per 5 minutes globally
  *  - With ADMIN_KV: codes are random, stored hashed, and deleted on
  *    successful use — truly single-use, fresh code available any time
+ *  - With ADMIN_KV: the code is burned after 5 wrong guesses
  *  - Without KV: falls back to stateless TOTP verification
  */
 
 import { verifyOTP, sha256hex, timingSafeEqual } from './_otp.js';
 import { makeSessionCookie } from './_auth.js';
 import { rateLimit, tooManyRequests, clientIP } from './_ratelimit.js';
+
+const MAX_FAILS = 5; // wrong guesses before the current code is burned
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -42,6 +45,18 @@ export async function onRequestPost(context) {
         timingSafeEqual(await sha256hex(code), storedHash)) {
       valid = true;
       await env.ADMIN_KV.delete('otp:current');
+      await env.ADMIN_KV.delete('otp:fails');
+    } else if (storedHash) {
+      // Burn the code after MAX_FAILS wrong guesses so concurrent requests
+      // that slip past the (eventually consistent) rate limiter can't
+      // brute-force the 6-digit space within the 5-minute window
+      const fails = parseInt((await env.ADMIN_KV.get('otp:fails')) || '0', 10) + 1;
+      if (fails >= MAX_FAILS) {
+        await env.ADMIN_KV.delete('otp:current');
+        await env.ADMIN_KV.delete('otp:fails');
+      } else {
+        await env.ADMIN_KV.put('otp:fails', String(fails), { expirationTtl: 300 });
+      }
     }
   } else {
     // Fallback: stateless TOTP (not single-use — KV unavailable)
